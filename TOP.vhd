@@ -1,0 +1,107 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.all;
+use IEEE.STD_LOGIC_ARITH.all;
+use IEEE.STD_LOGIC_UNSIGNED.all;
+USE IEEE.NUMERIC_STD.ALL;
+LIBRARY WORK;
+USE WORK.BRAM_UART_DATA_TYPES.ALL;
+
+entity TOP is
+    Port 
+    ( 
+        CLK_100     : IN STD_LOGIC;
+        RST         : IN STD_LOGIC;
+                
+        UART_TX_OUT : OUT STD_LOGIC;
+        UART_RX_IN  : IN STD_LOGIC
+        
+    );
+end TOP;
+
+architecture Behavioral of TOP is
+    
+    signal i_rst                : std_logic := '1';
+    signal i_rst_n              : std_logic := '0'; 
+    signal alive_counter        : std_logic_vector(31 downto 0) := (others => '0');
+    
+    signal reg_if_addr          : std_logic_vector(15 downto 0);
+    signal reg_if_wr_data       : std_logic_vector(31 downto 0);
+    signal reg_if_rd_data       : std_logic_vector(31 downto 0);
+    signal reg_if_en            : std_logic;
+    signal reg_if_wr_en         : std_logic_vector(3 downto 0);
+    signal CTRL_REGS            : CONTROL_REGISTERS;
+    signal STAT_REGS            : STAT_REGISTERS;
+    
+begin
+    
+    
+    i_rst_n <= not i_rst;
+
+    P1: process (CLK_100) begin
+        if rising_edge(CLK_100) then
+            if (RST = '0') then
+                if (alive_counter = 100_000) then
+                    alive_counter <= (others => '0');
+                    i_rst <= '0';
+                else
+                    alive_counter <= alive_counter + 1;
+                end if;
+            else
+                alive_counter <= (others => '0');
+                i_rst <= '1';
+            end if;
+        end if;
+    end process;
+    
+    U1: entity work.BD_wrapper
+        port map
+        (
+            CLK_100             => CLK_100,
+            RESET_N             => i_rst_n,
+            REG_IF_addr         => reg_if_addr,
+            REG_IF_clk          => open,
+            REG_IF_din          => reg_if_wr_data,
+            REG_IF_dout         => reg_if_rd_data,
+            REG_IF_en           => reg_if_en,
+            REG_IF_rst          => open,
+            REG_IF_we           => reg_if_wr_en
+            
+        );
+    
+    U2: entity work.REG_IF
+        port map
+        (
+            CLK                 =>  CLK_100,                   
+            RST                 =>  i_rst,               
+            
+            EXT_REG_IF_ADDR     =>  reg_if_addr,        
+            EXT_REG_IF_WR_DATA  =>  reg_if_wr_data,         
+            EXT_REG_IF_RD_DATA  =>  reg_if_rd_data,          
+            EXT_REG_IF_EN       =>  reg_if_en,        
+            EXT_REG_IF_WR_EN    =>  reg_if_wr_en,           
+                               
+            CTRL_REGS           =>  CTRL_REGS,  
+            STAT_REGS           =>  STAT_REGS                 
+        );
+    
+    U3: entity work.UART_TRX
+        port map 
+        (
+            CLK                =>    CLK_100,
+            RST_IN             =>    i_rst,
+     
+            RX_IN              =>    UART_RX_IN,
+            TX_OUT             =>    UART_TX_OUT,
+     
+            RX_F_EMPTY         =>    STAT_REGS.ext_interface_rx_buf_empty,
+            RX_F_DOUT          =>    STAT_REGS.ext_interface_rx_buf_data,
+            RX_F_REN           =>    CTRL_REGS.ext_interface_rx_buf_rden,
+     
+            TX_F_DIN           =>    CTRL_REGS.ext_interface_tx_buf_data,
+            TX_F_WEN           =>    CTRL_REGS.ext_interface_tx_buf_wren,
+            TX_F_FULL          =>    STAT_REGS.ext_interface_tx_buf_full
+        );
+    
+    
+    
+end Behavioral;
