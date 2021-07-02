@@ -87,19 +87,22 @@ begin
     U3: entity work.UART_TRX
         port map 
         (
-            CLK                =>    CLK_100,
-            RST_IN             =>    i_rst,
+        
+            CLK             =>    CLK_100,
+            RST             =>    i_rst,
+            
+            CLK_DIV_BAUD    =>    CTRL_REGS.ext_interface_clk_div_baud_dbg,
+            
+            RX_IN           =>    UART_RX_IN,
+            TX_OUT          =>    UART_TX_OUT,
      
-            RX_IN              =>    UART_RX_IN,
-            TX_OUT             =>    UART_TX_OUT,
+            RX_BUF_EMPTY    =>    STAT_REGS.ext_interface_rx_buf_empty,
+            RX_BUF_DATA     =>    STAT_REGS.ext_interface_rx_buf_data,
+            RX_BUF_RDEN     =>    CTRL_REGS.ext_interface_rx_buf_rden,
      
-            RX_F_EMPTY         =>    STAT_REGS.ext_interface_rx_buf_empty,
-            RX_F_DOUT          =>    STAT_REGS.ext_interface_rx_buf_data,
-            RX_F_REN           =>    CTRL_REGS.ext_interface_rx_buf_rden,
-     
-            TX_F_DIN           =>    CTRL_REGS.ext_interface_tx_buf_data,
-            TX_F_WEN           =>    CTRL_REGS.ext_interface_tx_buf_wren,
-            TX_F_FULL          =>    STAT_REGS.ext_interface_tx_buf_full
+            TX_BUF_DATA     =>    CTRL_REGS.ext_interface_tx_buf_data,
+            TX_BUF_WREN     =>    CTRL_REGS.ext_interface_tx_buf_wren,
+            TX_BUF_FULL     =>    STAT_REGS.ext_interface_tx_buf_full
         );
     
     
