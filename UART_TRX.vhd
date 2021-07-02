@@ -1,135 +1,132 @@
 library IEEE;
-library work;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.STD_LOGIC_ARITH.ALL;
-use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 entity UART_TRX is
-    Port 
-    ( 
-            CLK             : IN STD_LOGIC;
-            RST_IN          : IN STD_LOGIC;
-                        
-            RX_IN           : IN STD_LOGIC;
-            TX_OUT          : OUT STD_LOGIC;
-                        
-            RX_F_EMPTY      : OUT STD_LOGIC;
-            RX_F_DOUT       : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-            RX_F_REN        : IN  STD_LOGIC;
-                        
-            TX_F_DIN        : IN  STD_LOGIC_VECTOR(7 DOWNTO 0);
-            TX_F_WEN        : IN  STD_LOGIC;
-            TX_F_FULL       : OUT STD_LOGIC
-    );
+	port
+	(
+		CLK				: IN	STD_LOGIC;
+		RST				: IN	STD_LOGIC;
+		
+		CLK_DIV_BAUD	: IN	STD_LOGIC_VECTOR(31 DOWNTO 0);
+		
+		TX_OUT			: OUT	STD_LOGIC;
+		RX_IN			: IN	STD_LOGIC;
+		
+		RX_BUF_EMPTY	: OUT	STD_LOGIC;
+		RX_BUF_RDEN		: IN	STD_LOGIC;
+		RX_BUF_DATA		: OUT	STD_LOGIC_VECTOR(7 DOWNTO 0);
+        		
+		TX_BUF_FULL		: OUT  	STD_LOGIC;
+		TX_BUF_WREN		: IN  	STD_LOGIC;
+		TX_BUF_DATA		: IN	STD_LOGIC_VECTOR(7 DOWNTO 0)		
+	);
 end UART_TRX;
 
-architecture behavioral of UART_TRX is
-   
-    signal i_rx_dout        : std_logic_vector(7 downto 0) := (others=>'0');
-    signal i_rx_done        : std_logic := '0';
-    signal i_rx_wr_en       : std_logic := '0';
-    
-    signal i_rx_f_din       : std_logic_vector(7 downto 0) := (others=>'0');
-    signal i_rx_f_full      : std_logic := '0';
-    
-    signal i_tx_din         : std_logic_vector(7 downto 0) := (others=>'0');
-    signal i_tx_rd_en       : std_logic := '0';
-    signal i_tx_start_in    : std_logic := '0';
-    
-    signal i_tx_f_dout      : std_logic_vector(7 downto 0) := (others=>'0');
-    signal i_tx_f_empty     : std_logic := '0';
-    signal i_tx_busy        : std_logic := '0';
+architecture Behavioral of UART_TRX is
 
-    
-COMPONENT RX_FIFO
-    PORT (
-        clk : IN STD_LOGIC;
-        rst : IN STD_LOGIC;
-        din : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-        wr_en : IN STD_LOGIC;
-        rd_en : IN STD_LOGIC;
-        dout : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-        full : OUT STD_LOGIC;
-        empty : OUT STD_LOGIC
-    );
-END COMPONENT;
+	signal rx_fifo_full			: std_logic := '0';
+	signal rx_fifo_wr_en		: std_logic := '0';
+	signal rx_fifo_din			: std_logic_vector(7 downto 0) := (others=>'0');
+	signal rx_data				: std_logic_vector(7 downto 0) := (others=>'0');
+	signal rx_data_valid		: std_logic := '0';
+	
+	signal tx_data				: std_logic_vector(7 downto 0) := (others=>'0');
+	signal tx_data_valid		: std_logic := '0';
+	signal tx_busy				: std_logic := '0';
+	signal tx_fifo_rden			: std_logic := '0';
+	signal tx_fifo_empty		: std_logic := '0';
+	signal tx_fifo_dout			: std_logic_vector(7 downto 0) := (others=>'0');
 
-COMPONENT TX_FIFO
-    PORT (
-        clk : IN STD_LOGIC;
-        rst : IN STD_LOGIC;
-        din : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-        wr_en : IN STD_LOGIC;
-        rd_en : IN STD_LOGIC;
-        dout : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-        full : OUT STD_LOGIC;
-        empty : OUT STD_LOGIC
-    );
-END COMPONENT;
-    
-begin              
-
-U0_0_UART_RX : entity work.UART_RX
-    Generic Map
-    (
-        CLK_FREQ        =>  100_000_000,
-        BAUD_RATE       =>  115_200
-    )
-    Port map (
-        CLK             =>  CLK,
-        RST_IN          =>  RST_IN,
-        RX_IN           =>  RX_IN,
-        RX_OUT          =>  i_rx_dout,
-        RX_DONE_OUT     =>  i_rx_done
-    );
+    COMPONENT RX_FIFO
+      PORT (
+        rst         : IN STD_LOGIC;
+        clk         : IN STD_LOGIC;
+        din         : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+        wr_en       : IN STD_LOGIC;
+        rd_en       : IN STD_LOGIC;
+        dout        : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+        full        : OUT STD_LOGIC;
+        empty       : OUT STD_LOGIC
+      );
+       end component RX_FIFO;
+       
+    COMPONENT TX_FIFO
+        PORT (
+          rst       : IN STD_LOGIC;
+          clk       : IN STD_LOGIC;
+          din       : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
+          wr_en     : IN STD_LOGIC;
+          rd_en     : IN STD_LOGIC;
+          dout      : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
+          full      : OUT STD_LOGIC;
+          empty     : OUT STD_LOGIC
+        );
+ end component TX_FIFO;
  
-    i_rx_f_din  <=  i_rx_dout;
-    i_rx_wr_en  <=  i_rx_done and (not i_rx_f_full);
-   
-U0_1_UART_RX_F : RX_FIFO
-    PORT MAP 
-    (
-        clk             => CLK,
-        rst             => RST_IN,
-        din             => i_rx_f_din,      --RX modulunden gelen girecek.
-        wr_en           => i_rx_wr_en,      --rx_done gelecek.
-        rd_en           => RX_F_REN,        --if not empty.
-        dout            => RX_F_DOUT,       --fifo cikisi direkt.
-        full            => i_rx_f_full,     --fifo
-        empty           => RX_F_EMPTY       --fifo
-    );
-    
-U0_2_UART_TX : entity work.UART_TX
-    Generic Map
-    (
-        CLK_FREQ        =>  100_000_000,
-        BAUD_RATE       =>  115_200
-    )
-    Port map (
-        CLK             =>  CLK,
-        RST_IN          =>  RST_IN,
-        TX_START_IN     =>  i_tx_start_in,
-        DATA_IN         =>  i_tx_din,
+begin
+
+	uart_rx_i : entity work.UART_RX 
+		port map
+		(
+			CLK 			=> CLK			,
+			rst			 	=> RST			,
+			
+			rx_in 			=> rx_in		,
+			
+			clk_div_baud 	=> CLK_DIV_BAUD	,
+			
+			rx_data 		=> rx_data		,
+			rx_data_valid 	=> rx_data_valid,
+			rx_err 			=> open
+		);
+
+	rx_fifo_wr_en <= rx_data_valid and (not rx_fifo_full);
+	rx_fifo_din <= rx_data; 
+	
+	U0_RX_FIFO : RX_FIFO
+        PORT MAP 
+        (
+            rst         => RST,      
+            clk         => CLK,
+            
+            din         => rx_fifo_din,
+            rd_en       => RX_BUF_RDEN,
+            wr_en       => rx_fifo_wr_en,
+            
+            dout        => RX_BUF_DATA,
+            full        => rx_fifo_full,
+            empty       => RX_BUF_EMPTY
+        );
+           		
+	uart_tx_i : entity work.UART_TX 
+		port map 
+		(
+			clk 			=> CLK,
+			rst 			=> RST,
+			
+			tx_out 			=> tx_out,
+			
+			clk_div_baud 	=> CLK_DIV_BAUD,
+			
+			tx_data 		=> tx_data,
+			tx_data_valid 	=> tx_data_valid,
+			tx_busy 		=> tx_busy
+        );
         
-        TX_OUT          =>  TX_OUT,
-        TX_BUSY         =>  i_tx_busy,
-        TX_DONE_OUT     =>  open
-    );
-    
-    i_tx_start_in <= (not i_tx_f_empty) and (not i_tx_busy);--busy eklendi.
-    i_tx_rd_en <=  (not i_tx_f_empty) and (not i_tx_busy);
-    i_tx_din <= i_tx_f_dout;
-        
-U0_3_UART_TX_F : TX_FIFO
-    PORT MAP (
-        clk             =>  CLK,
-        rst             =>  RST_IN,
-        din             =>  TX_F_DIN,            --rx fifonun dout'u
-        wr_en           =>  TX_F_WEN,            --if rx not empty
-        rd_en           =>  i_tx_rd_en,          --?
-        dout            =>  i_tx_f_dout,         --tx in gibi olacak
-        full            =>  TX_F_FULL,           --fifo
-        empty           =>  i_tx_f_empty         --fifo
-    );
-    
-end behavioral;
+	tx_data <= tx_fifo_dout;
+	tx_data_valid <= tx_fifo_rden;
+	tx_fifo_rden <= (not tx_fifo_empty) and (not tx_busy);
+
+    U1_TX_FIFO : TX_FIFO
+        PORT MAP 
+        (
+            rst         => RST,
+            clk         => CLK,
+            din         => TX_BUF_DATA,
+            wr_en       => TX_BUF_WREN,
+            rd_en       => tx_fifo_rden,
+            dout        => tx_fifo_dout,
+            full        => TX_BUF_FULL,
+            empty       => tx_fifo_empty
+        );
+end Behavioral;
