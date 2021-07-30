@@ -14,7 +14,7 @@
 #define CLK_DIV_BAUD 	((u32*) (BRAM_WRITE_BASE_ADDRESS + 4*(0x00)))
 #define TX_BUF_DATA 	((u32*) (BRAM_WRITE_BASE_ADDRESS + 4*(0x01)))
 
-#define RX_BUF_EMTY 	((u32*) (BRAM_READ_BASE_ADDRESS + 4*(0x00)))
+#define RX_BUF_EMPTY 	((u32*) (BRAM_READ_BASE_ADDRESS + 4*(0x00)))
 #define RX_BUF_DATA 	((u32*) (BRAM_READ_BASE_ADDRESS + 4*(0x01)))
 #define TX_BUF_FULL 	((u32*) (BRAM_READ_BASE_ADDRESS + 4*(0x02)))
 
