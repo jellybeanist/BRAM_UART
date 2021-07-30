@@ -9,7 +9,7 @@ int main (void)
 	while (1)
 	{
 
-		if(RX_BUF_EMTY[0] == 0)
+		if(RX_BUF_EMPTY[0] == 0)
 			TX_BUF_DATA[0] = RX_BUF_DATA[0];
 
 
